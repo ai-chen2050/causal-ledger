@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "node", 
+    "narwhal-abci", 
+    "crates/fastpay_core",
+    "domains/evm-abci",
+    "domains/fastpay",
+]
+
+# TODO: Remove once new revm release
+[patch.crates-io]
+revm = { git = "https://github.com/bluealloy/revm", package = "revm" }
