@@ -85,6 +85,13 @@ pub fn dbg_addr(name: u8) -> FastPayAddress {
 #[derive(Eq, PartialEq, Copy, Clone, Serialize, Deserialize)]
 pub struct Signature(dalek::Signature);
 
+impl Default for Signature {
+    fn default() -> Self {
+        // Replace `dalek::SIGNATURE_LENGTH` with the actual length constant if defined
+        Signature(dalek::Signature::from_bytes(&[0u8; dalek::SIGNATURE_LENGTH]).unwrap())
+    }
+}
+
 impl KeyPair {
     /// Avoid implementing `clone` on secret keys to prevent mistakes.
     pub fn copy(&self) -> KeyPair {

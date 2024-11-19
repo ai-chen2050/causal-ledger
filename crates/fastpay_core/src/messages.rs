@@ -61,6 +61,22 @@ pub struct CertifiedTransferOrder {
     pub signatures: Vec<(AuthorityName, Signature)>,
 }
 
+impl CertifiedTransferOrder {
+    pub fn find_signed_order(&self, authority_name: &AuthorityName) -> SignedTransferOrder {
+        let mut ret = SignedTransferOrder {
+            value: self.value.clone(),
+            authority: *authority_name,
+            signature: Signature::default(),
+        };
+        for (auth, sig) in &self.signatures {
+            if auth == authority_name {
+                ret.signature = *sig;
+            }
+        }
+        ret
+    }
+}
+
 #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct RedeemTransaction {
     pub transfer_certificate: CertifiedTransferOrder,

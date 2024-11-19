@@ -140,6 +140,9 @@ impl Authority for AuthorityState {
             self.in_shard(&certificate.value.transfer.sender),
             FastPayError::WrongShard
         );
+        // needs check order when one committing
+        self.check_order_in_cert(&certificate)?;
+
         certificate.check(&self.committee)?;
         let transfer = certificate.value.transfer.clone();
 
@@ -377,5 +380,51 @@ impl AuthorityState {
     #[cfg(test)]
     pub fn accounts_mut(&mut self) -> &mut BTreeMap<FastPayAddress, AccountOffchainState> {
         &mut self.accounts
+    }
+
+    fn check_order_in_cert(
+        &mut self,
+        transfer_certificate: &CertifiedTransferOrder,
+    ) -> Result<(), FastPayError> {
+        let order = &transfer_certificate.value;
+        order.check_signature()?;
+        let transfer = &order.transfer;
+        let sender = transfer.sender;
+        fp_ensure!(
+            transfer.sequence_number <= SequenceNumber::max(),
+            FastPayError::InvalidSequenceNumber
+        );
+        fp_ensure!(
+            transfer.amount > Amount::zero(),
+            FastPayError::IncorrectTransferAmount
+        );
+        match self.accounts.get_mut(&sender) {
+            None => fp_bail!(FastPayError::UnknownSenderAccount),
+            Some(account) => {
+                if let Some(pending_confirmation) = &account.pending_confirmation {
+                    fp_ensure!(
+                        &pending_confirmation.value.transfer == transfer,
+                        FastPayError::PreviousTransferMustBeConfirmedFirst {
+                            pending_confirmation: pending_confirmation.value.clone()
+                        }
+                    );
+                    // This exact transfer order was already signed. Return the previous value.
+                    return Ok(());
+                }
+                fp_ensure!(
+                    account.next_sequence_number == transfer.sequence_number,
+                    FastPayError::UnexpectedSequenceNumber
+                );
+                fp_ensure!(
+                    account.balance >= transfer.amount.into(),
+                    FastPayError::InsufficientFunding {
+                        current_balance: account.balance
+                    }
+                );
+                let signed_order = transfer_certificate.find_signed_order(&self.name);
+                account.pending_confirmation = Some(signed_order);
+                Ok(())
+            }
+        }
     }
 }
